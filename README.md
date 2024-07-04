@@ -1,2 +1,2 @@
 # UltVox
-Program to convert models into voxel approximations
+Program to convert models into voxel approximations.
