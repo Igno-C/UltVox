@@ -1,4 +1,6 @@
 # UltVox
 Program to convert models into voxel approximations.
 
-Still requires some internal refactoring to be more extensible. One day.
+Originally developed around June 2023.
+
+Still requires some internal refactoring to be more extensible. I do have some plans for additional functionality. One day.
