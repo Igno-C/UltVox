@@ -1,7 +1,7 @@
 use std::{fs::read_dir, path::Path};
 
 use bevy::prelude::*;
-use bevy_egui::{egui::{self, Context}, EguiContexts};
+use bevy_egui::{egui::{self, Ui}, EguiContexts};
 use crate::{general_sys::{AppState, ReloadVoxelsEvent, RotationConfig}, schematic::Schematic};
 
 pub struct UiPlugin;
@@ -9,7 +9,7 @@ pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(UiState::default());
-        app.add_system(draw_ui_system.in_set(OnUpdate(AppState::Ui)));
+        app.add_systems(bevy_egui::EguiPrimaryContextPass, draw_ui_system);
     }
 }
 
@@ -76,35 +76,49 @@ impl UiState {
 }
 
 fn draw_ui_system(
+    state: Res<State<AppState>>,
     mut ctx: EguiContexts,
     mut ui_state: ResMut<UiState>,
     mut schematic: ResMut<Schematic>,
     mut rot_con: ResMut<RotationConfig>,
-    reloader: EventWriter<ReloadVoxelsEvent>
+    reloader: MessageWriter<ReloadVoxelsEvent>
 ) {
-    let c = ctx.ctx_mut();
+    if state.get() != &AppState::Ui {return;}
+
+    let c = ctx.ctx_mut().unwrap();
     let u = ui_state.as_mut();
     let s = schematic.as_mut();
     let rc = rot_con.as_mut();
 
-    top_panel(c, u, s, rc, reloader);
+    let mut viewport_ui = egui::Ui::new(
+        c.clone(),
+        "viewport".into(),
+        egui::UiBuilder::new()
+            // .layer_id(egui::LayerId::background())
+            .max_rect(c.viewport_rect()),
+    );
 
-    edit_window(c, u, s);
+    top_panel(&mut viewport_ui, u, s, rc, reloader);
 
-    help_window(c, u);
+    edit_window(&mut viewport_ui, u, s);
+
+    help_window(&mut viewport_ui, u);
 }
 
 fn top_panel(
-    ctx: &mut Context,
+    ui: &mut Ui,
     ui_state: &mut UiState,
     schematic: &mut Schematic,
     rot_con: &mut RotationConfig,
-    mut reloader: EventWriter<ReloadVoxelsEvent>
+    mut reloader: MessageWriter<ReloadVoxelsEvent>
 ) {
     let UiState {ewindow_open, helpwindow_open, ron_files, obj_files, uptoy_slider, voxel_count} = ui_state;
     let RotationConfig {scale, rotx, roty, rotz, yrange, .. } = rot_con;
     let mut refresh_state = false;
-    egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+    egui::Panel::top("top_panel").show_inside(ui, |ui| {
+
+    // });
+    // egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
         ui.horizontal(|ui| {
             ui.menu_button("Load schematic", |ui| {
                 if ui.button("Refresh").clicked() {
@@ -114,16 +128,18 @@ fn top_panel(
                 for ron_file in ron_files.iter() {
                     if ui.button(ron_file).clicked() {
                         schematic.load_from_file(ron_file);
-                        reloader.send(ReloadVoxelsEvent);
-                        ui.close_menu();
+                        reloader.write(ReloadVoxelsEvent);
+                        // ui.close_menu();
+                        ui.close();
                     }
                 }
                 ui.separator();
                 for obj_file in obj_files.iter() {
                     if ui.button(obj_file).clicked() {
                         schematic.load_from_obj_file(obj_file);
-                        reloader.send(ReloadVoxelsEvent);
-                        ui.close_menu();
+                        reloader.write(ReloadVoxelsEvent);
+                        // ui.close_menu();
+                        ui.close();
                     }
                 }
             });
@@ -140,7 +156,7 @@ fn top_panel(
                 egui::Slider::new(uptoy_slider, (yrange.0-1)..=yrange.1)
                     .integer()
             );
-            if ui.button("Reload voxels").clicked() {reloader.send(ReloadVoxelsEvent);}
+            if ui.button("Reload voxels").clicked() {reloader.write(ReloadVoxelsEvent);}
             ui.separator();
             ui.label(format!("Voxel count: {}", voxel_count));
             ui.separator();
@@ -153,13 +169,13 @@ fn top_panel(
     if refresh_state {ui_state.reload_files();}
 }
 
-fn edit_window(ctx: &mut Context, ui_state: &mut UiState, schematic: &mut Schematic) {
+fn edit_window(ui: &mut Ui, ui_state: &mut UiState, schematic: &mut Schematic) {
     let UiState {ewindow_open, ..} = ui_state;
     egui::Window::new("Dumps")
         .open(ewindow_open)
         .resizable(false)
         .collapsible(false)
-        .show(ctx, |ui| {
+        .show(ui, |ui| {
             if ui.button("Dump example").clicked() {
                 Schematic::example().save_to_file("example.ron");
                 println!("Dumped");
@@ -172,13 +188,13 @@ fn edit_window(ctx: &mut Context, ui_state: &mut UiState, schematic: &mut Schema
     );
 }
 
-fn help_window(ctx: &mut Context, ui_state: &mut UiState) {
+fn help_window(ui: &mut Ui, ui_state: &mut UiState) {
     let UiState {helpwindow_open, ..} = ui_state;
     egui::Window::new("Help")
         .open(helpwindow_open)
         .resizable(false)
         .collapsible(false)
-        .show(ctx, |ui| {
+        .show(ui, |ui| {
             ui.strong("Menu:");
             ui.label(
 r#" - Load Schematic:  Load an .obj or .ron file holding a shape. The file must be in the ./shapes/ folder. 'Refresh' refreshes the list if a new file is put into or removed from the folder while the program is running.

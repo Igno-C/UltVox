@@ -16,8 +16,8 @@ fn main() {
             primary_window: Some(Window {title: "UltVox".into(), focused: true, ..default()}),
             ..default()
         }))
-        .add_plugin(EguiPlugin)
-        .add_plugin(general_sys::GeneralPlugin)
-        .add_plugin(ui::UiPlugin)
+        .add_plugins(EguiPlugin::default())
+        .add_plugins(general_sys::GeneralPlugin)
+        .add_plugins(ui::UiPlugin)
         .run();
 }

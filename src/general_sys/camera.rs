@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use bevy::{prelude::*, input::mouse::MouseMotion, core_pipeline::clear_color::ClearColorConfig};
+use bevy::prelude::*;
 use super::AppState;
 use crate::consts;
 
@@ -9,51 +9,33 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_startup_system(spawn_cam)
-            .add_system(camera_move_system.in_set(OnUpdate(AppState::Camera)))
-            .insert_resource(AmbientLight {
-                color: Color::WHITE,
-                brightness: 1.1,
-            });
+            .add_systems(Startup, spawn_cam)
+            .add_systems(Update, camera_move_system);
     }
 }
 
-#[derive(Default, Component)]
+#[derive(Default, Component, Clone)]
 pub struct CamRotation {
     yaw: f32,
     pitch: f32
 }
 
 pub fn spawn_cam(mut commands: Commands) {
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(0., 0., 10.)),
-            camera_3d: Camera3d {
-                clear_color: ClearColorConfig::Custom(Color::rgb(0.87, 0.87, 0.855)),
-                ..default()
-            },
-            ..default()
-        },
-        CamRotation::default()
+    commands.spawn_scene(bsn!(
+        Camera {
+            clear_color: ClearColorConfig::Custom(Color::srgb(0.87, 0.87, 0.855))
+        }
+        Camera3d
+        Transform::from_translation(Vec3::new(0., 0., 10.))
+        AmbientLight {
+            color: Color::WHITE,
+            brightness: 550.,
+        }
+        CamRotation
     ));
-    // commands.spawn(
-    //     DirectionalLightBundle {
-    //         directional_light: DirectionalLight {
-    //             illuminance: 7000.,
-    //             shadows_enabled: false,
-    //             ..default()
-    //         },
-    //         transform: Transform::looking_at(
-    //             Transform::from_translation(Vec3::ZERO),
-    //             Vec3::new(1., -2., 1.), 
-    //             Vec3::Y
-    //         ),
-    //         ..default()
-    //     }
-    // );
 }
 
-pub fn movement_axis<const N: usize>(input: &Res<Input<KeyCode>>, plus: [KeyCode; N], minus: [KeyCode; N]) -> f32 {
+pub fn movement_axis<const N: usize>(input: &Res<ButtonInput<KeyCode>>, plus: [KeyCode; N], minus: [KeyCode; N]) -> f32 {
 	let mut axis = 0.0;
 	if input.any_pressed(plus) {
 		axis += 1.0;
@@ -65,17 +47,17 @@ pub fn movement_axis<const N: usize>(input: &Res<Input<KeyCode>>, plus: [KeyCode
 }
 
 pub fn camera_move_system(
-    mut ev_motion: EventReader<MouseMotion>,
+    state: Res<State<AppState>>,
+    mouse_motion: Res<bevy::input::mouse::AccumulatedMouseMotion>,
     mut query: Query<(&mut Transform, &mut CamRotation)>,
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>
 ) {
-    let mut m_delta = Vec2::ZERO;
-    let (mut tf, mut rot) = query.single_mut();
-    for e in ev_motion.iter() {
-        m_delta += e.delta;
+    if state.get() != &AppState::Camera {
+        return
     }
-    m_delta*=consts::MOUSE_SENS;
+    let (mut tf, mut rot) = query.single_mut().unwrap();
+    let m_delta = mouse_motion.delta * consts::MOUSE_SENS;
 
     rot.pitch += m_delta.y;
     rot.yaw -= m_delta.x;
@@ -88,11 +70,11 @@ pub fn camera_move_system(
 		Quat::from_axis_angle(-Vec3::X, rot.pitch);
 
     let mut movespeed = consts::CAM_SPEED;
-    if keyboard.pressed(KeyCode::LShift) {movespeed*=consts::SHIFT_BOOST;}
+    if keyboard.pressed(KeyCode::ShiftLeft) {movespeed*=consts::SHIFT_BOOST;}
 
-    let lr = movement_axis(&keyboard, [KeyCode::D, KeyCode::Right], [KeyCode::A, KeyCode::Left]);
-    let fb = movement_axis(&keyboard, [KeyCode::S, KeyCode::Down], [KeyCode::W, KeyCode::Up]);
-    let ud = movement_axis(&keyboard, [KeyCode::Space], [KeyCode::LControl]);
-    let k_delta = tf.rotation.mul_vec3(Vec3::new(lr, ud, fb))*movespeed*time.delta_seconds();
+    let lr = movement_axis(&keyboard, [KeyCode::KeyD, KeyCode::ArrowRight], [KeyCode::KeyA, KeyCode::ArrowLeft]);
+    let fb = movement_axis(&keyboard, [KeyCode::KeyS, KeyCode::ArrowDown], [KeyCode::KeyW, KeyCode::ArrowUp]);
+    let ud = movement_axis(&keyboard, [KeyCode::Space], [KeyCode::ControlLeft]);
+    let k_delta = tf.rotation.mul_vec3(Vec3::new(lr, ud, fb))*movespeed*time.delta_secs();
     tf.translation += k_delta;
 }

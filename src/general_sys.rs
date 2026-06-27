@@ -1,6 +1,10 @@
 mod camera;
 
-use bevy::{prelude::*, window::{CursorGrabMode, PrimaryWindow}};
+use bevy::{
+    prelude::*,
+    window::CursorGrabMode,
+    color::palettes::css,
+};
 
 use crate::ui::UiState;
 
@@ -9,20 +13,17 @@ pub struct GeneralPlugin;
 impl Plugin for GeneralPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_event::<ReloadVoxelsEvent>()
-            .add_plugin(camera::CameraPlugin)
+            // .add_event::<ReloadVoxelsEvent>()
+            .add_plugins(camera::CameraPlugin)
             // .insert_resource(AppState::Ui)
-            .add_state::<AppState>()
+            .init_state::<AppState>()
+            .add_message::<ReloadVoxelsEvent>()
             .insert_resource(HandleHolder::default())
             .insert_resource(RotationConfig::default())
             .insert_resource(crate::schematic::Schematic::default())
-            .add_startup_system(init_handles)
-            .add_system(state_cycle_system)
-            .add_system(reload_voxel_system);
-        // app.add_system_to_stage(CoreStage::PreUpdate, state_cycle_system);
-        // app.add_startup_system(spawn_debug_cube);
-        // .add_system(exit_on_esc);
-        // app.add_system_to_stage(CoreStage::PostUpdate, reload_voxel_system);
+            .add_systems(Startup, init_handles)
+            .add_systems(Update, state_cycle_system)
+            .add_systems(Update, reload_voxel_system);
     }
 }
 
@@ -49,23 +50,23 @@ pub struct HandleHolder {
     materials: [Handle<StandardMaterial>; 8]
 }
 
-fn state_cycle_system(mut state: ResMut<State<AppState>>, keyboard: Res<Input<KeyCode>>, mut windows: Query<&mut Window, With<PrimaryWindow>>) {
+fn state_cycle_system(
+    state: Res<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut cursor_options: Single<&mut bevy::window::CursorOptions>
+) {
     if keyboard.just_pressed(crate::consts::MODE_SWITCH) {
-        let mut window = windows.get_single_mut().unwrap();
-        match state.0 {
+        match state.get() {
             AppState::Ui => {
-                state.0 = AppState::Camera;
-                window.cursor.grab_mode = CursorGrabMode::Locked;
-                window.cursor.visible = false;
-                // window.set_cursor_grab_mode();
-                // window.set_cursor_visibility(false);
+                next_state.set(AppState::Camera);
+                cursor_options.grab_mode = CursorGrabMode::Locked;
+                cursor_options.visible = false;
             },
             AppState::Camera => {
-                state.0 = AppState::Ui;
-                window.cursor.grab_mode = CursorGrabMode::None;
-                window.cursor.visible = true;
-                // window.set_cursor_grab_mode(CursorGrabMode::None);
-                // window.set_cursor_visibility(true);
+                next_state.set(AppState::Ui);
+                cursor_options.grab_mode = CursorGrabMode::None;
+                cursor_options.visible = true;
             },
         }
     }
@@ -83,20 +84,20 @@ fn init_handles (
     mut handles: ResMut<HandleHolder>,
     asset_server: Res<AssetServer>,
 ) {
-    handles.cube = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    handles.cube = meshes.add(Mesh::from(Cuboid::from_length(1.)));
     let texture = Some(asset_server.load("cubeface.png"));
     for (i, c) in [
-        Color::RED,
-        Color::rgb(1.0, 0.5, 0.),
-        Color::YELLOW,
-        Color::GREEN,
-        Color::rgb(0., 0.5, 1.), // BLUE
-        Color::rgb(0.3, 0., 0.8), // ueue
-        Color::rgb(1.0, 0.1, 0.5), // aii
+        css::RED,
+        css::ORANGE,
+        css::YELLOW,
+        css::GREEN,
+        css::ROYAL_BLUE,
+        css::MEDIUM_PURPLE,
+        css::MEDIUM_VIOLET_RED,
     ].into_iter().enumerate() {
         handles.materials[i] = materials.add(StandardMaterial {
             base_color_texture: texture.clone(),
-            base_color: c,
+            base_color: c.into(),
             ..default()
         });
     }
@@ -107,6 +108,7 @@ fn init_handles (
     });
 }
 
+#[derive(Message)]
 pub struct ReloadVoxelsEvent;
 
 fn reload_voxel_system (
@@ -115,7 +117,7 @@ fn reload_voxel_system (
     schematic: Res<crate::schematic::Schematic>,
     mut rot_con: ResMut<RotationConfig>,
     mut ui_state: ResMut<UiState>,
-    mut reader: EventReader<ReloadVoxelsEvent>,
+    mut reader: MessageReader<ReloadVoxelsEvent>,
     previous: Query<Entity, With<Voxel>>
 ) {
     if reader.is_empty() {
@@ -142,12 +144,9 @@ fn reload_voxel_system (
         };
         let v = Vec3::new(p.0 as f32, p.1 as f32, p.2 as f32);
         commands.spawn((
-            PbrBundle {
-                mesh: handles.cube.clone(),
-                material: handles.materials[mat_index].clone(),
-                transform: Transform::from_translation(v),
-                ..default()
-            },
+            Mesh3d(handles.cube.clone()),
+            MeshMaterial3d(handles.materials[mat_index].clone()),
+            Transform::from_translation(v),
             Voxel
         ));
     }

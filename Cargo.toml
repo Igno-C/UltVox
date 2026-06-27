@@ -1,17 +1,20 @@
 [package]
 name = "ultvox"
-version = "0.3.0"
-edition = "2021"
+version = "0.4.0"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 
-# Removed: "animation", "bevy_animation", "bevy_audio", "bevy_gilrs", "bevy_gltf", "filesystem_watcher", "hdr", "ktx2", "tonemapping_luts", "vorbis", "zstd"
-bevy = { version = "0.10.1", default-features = false, features = ["bevy_pbr", "bevy_asset", "bevy_core_pipeline", "bevy_render", "bevy_scene", "bevy_sprite", "bevy_text", "bevy_winit", "png", "x11"] }
-bevy_egui = "0.20.3"
-serde = "1.0.164"
-ron = "0.8.0"
+bevy = {version = "0.19.0", default-features = false, features = ["default_app", "tonemapping_luts", "bevy_pbr", "bevy_asset", "bevy_core_pipeline", "bevy_render", "bevy_scene", "bevy_sprite", "bevy_text", "bevy_winit", "png", "x11"] }
+bevy_egui = {version = "0.40.1", default-features = false, features = ["bevy_ui", "default_fonts", ] }
+serde = "1.0.228"
+ron = "0.12.2"
 
 [profile.dev.package."*"]
 opt-level = 3
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
