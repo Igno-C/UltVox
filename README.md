@@ -1,9 +1,7 @@
 # UltVox
 Program to convert models into voxel approximations.
 
-Originally developed around June 2023.
-
-Still requires some internal refactoring to be more extensible. I do have some plans for additional functionality. Also need to update the dependencies. One day.
+Currently supports .obj files and .ron files with a custom format. Casts axis aligned rays to voxelize models.
 
 ---
 
