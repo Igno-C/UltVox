@@ -41,7 +41,7 @@ pub struct RotationConfig {
     pub roty: f32,
     pub rotz: f32,
     pub yrange: (i32, i32), // min, max
-    quat: Quat
+    // quat: Quat
 }
 
 #[derive(Resource, Default)]
@@ -129,8 +129,7 @@ fn reload_voxel_system (
         commands.entity(e).despawn();
     }
 
-    rot_con.compute_quat();
-    let voxels = schematic.voxelize_with_transform(rot_con.quat, rot_con.scale);
+    let voxels = schematic.voxelize_with_transform(rot_con.compute_quat(), rot_con.scale);
     let mut miny = 100000; let mut maxy = -100000;
     for (_, y, _) in voxels.iter() {if *y<miny {miny = *y;} if *y>maxy {maxy = *y;}} // quick minmax search
     rot_con.yrange = (miny, maxy);
@@ -162,13 +161,13 @@ impl Default for RotationConfig {
             roty: 0.,
             rotz: 0.,
             yrange: (0, 0),
-            quat: default(),
+            // quat: default(),
         }
     }
 }
 
 impl RotationConfig {
-    pub fn compute_quat(&mut self) {
-        self.quat = Quat::from_euler(EulerRot::YXZ, self.rotx, self.roty, self.rotz);
+    pub fn compute_quat(&self) -> Quat{
+        Quat::from_euler(EulerRot::YXZ, self.rotx, self.roty, self.rotz)
     }
 }

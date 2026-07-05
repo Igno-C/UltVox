@@ -1,7 +1,10 @@
 use std::{collections::HashMap, io::{Write, Read}};
 
 use bevy::prelude::*;
-use crate::{shapes, voxelization::{self, Voxelizable}};
+use rustmatica::Region;
+use crate::{general_sys::RotationConfig, shapes, voxelization::{self, Voxelizable}};
+
+use mcdata::util::BlockPos;
 
 #[derive(Resource, serde::Serialize, serde::Deserialize, Default, Debug)]
 pub struct Schematic {
@@ -24,6 +27,59 @@ impl Schematic {
         };
         
         if let Err(why) = file.write(ron::ser::to_string_pretty(self, ron::ser::PrettyConfig::new()).unwrap().as_bytes()) {
+            println!("couldn't write {}: {}", display, why);
+        }
+    }
+
+    pub fn save_to_litematic(&self, filename: &str, rot_con: &RotationConfig) {
+        let block = mcdata::GenericBlockState{name: "minecraft:gold_block".into(), properties: HashMap::new()};
+
+        let voxels= self.voxelize_with_transform(rot_con.compute_quat(), rot_con.scale);
+
+        if voxels.is_empty() {
+            println!("No voxels to save.");
+            return;
+        }
+
+        let mut min_x = i32::MAX;
+        let mut min_y = i32::MAX;
+        let mut min_z = i32::MAX;
+        let mut max_x = i32::MIN;
+        let mut max_y = i32::MIN;
+        let mut max_z = i32::MIN;
+
+        for &(x, y, z) in &voxels {
+            min_x = min_x.min(x);
+            min_y = min_y.min(y);
+            min_z = min_z.min(z);
+            max_x = max_x.max(x);
+            max_y = max_y.max(y);
+            max_z = max_z.max(z);
+        }
+
+        let size = BlockPos::new(
+            max_x - min_x + 1,
+            max_y - min_y + 1,
+            max_z - min_z + 1,
+        );
+
+        let mut region: Region = rustmatica::Region::new("UltVox Schematic", BlockPos::new(0, 0, 0), size);
+
+        for &(x, y, z) in &voxels {
+            let normalized = BlockPos::new(
+                x - min_x,
+                y - min_y,
+                z - min_z,
+            );
+            region.set_block(normalized, block.clone());
+        }
+
+        let spath = format!("./shapes/{}", filename);
+        let path = std::path::Path::new(&spath);
+        let display = path.display();
+
+        let schematic = region.as_litematic("Schematic dumped from UltVox", "You");
+        if let Err(why) = schematic.write_file(path) {
             println!("couldn't write {}: {}", display, why);
         }
     }

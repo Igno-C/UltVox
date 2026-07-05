@@ -100,7 +100,7 @@ fn draw_ui_system(
 
     top_panel(&mut viewport_ui, u, s, rc, reloader);
 
-    edit_window(&mut viewport_ui, u, s);
+    edit_window(&mut viewport_ui, u, s, &*rot_con);
 
     help_window(&mut viewport_ui, u);
 }
@@ -169,7 +169,7 @@ fn top_panel(
     if refresh_state {ui_state.reload_files();}
 }
 
-fn edit_window(ui: &mut Ui, ui_state: &mut UiState, schematic: &mut Schematic) {
+fn edit_window(ui: &mut Ui, ui_state: &mut UiState, schematic: &mut Schematic, rot_con: &RotationConfig) {
     let UiState {ewindow_open, ..} = ui_state;
     egui::Window::new("Dumps")
         .open(ewindow_open)
@@ -182,6 +182,10 @@ fn edit_window(ui: &mut Ui, ui_state: &mut UiState, schematic: &mut Schematic) {
             }
             if ui.button("Dump current").clicked() {
                 schematic.save_to_file("currentdump.ron");
+                println!("Dumped");
+            }
+            if ui.button("Dump current to .litematic").clicked() {
+                schematic.save_to_litematic("currentdump.litematic", rot_con);
                 println!("Dumped");
             }
         }
