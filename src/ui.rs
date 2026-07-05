@@ -113,7 +113,6 @@ fn top_panel(
     mut reloader: MessageWriter<ReloadVoxelsEvent>
 ) {
     let UiState {ewindow_open, helpwindow_open, ron_files, obj_files, uptoy_slider, voxel_count} = ui_state;
-    let RotationConfig {scale, rotx, roty, rotz, yrange, .. } = rot_con;
     let mut refresh_state = false;
     egui::Panel::top("top_panel").show_inside(ui, |ui| {
 
@@ -127,25 +126,26 @@ fn top_panel(
                 ui.separator();
                 for ron_file in ron_files.iter() {
                     if ui.button(ron_file).clicked() {
+                        *rot_con = RotationConfig::default();
                         schematic.load_from_file(ron_file);
                         reloader.write(ReloadVoxelsEvent);
-                        // ui.close_menu();
                         ui.close();
                     }
                 }
                 ui.separator();
                 for obj_file in obj_files.iter() {
                     if ui.button(obj_file).clicked() {
+                        *rot_con = RotationConfig::default();
                         schematic.load_from_obj_file(obj_file);
                         reloader.write(ReloadVoxelsEvent);
-                        // ui.close_menu();
                         ui.close();
                     }
                 }
             });
             ui.separator();
-            if ui.button("Reset rotations").clicked() {*scale = 1.; *rotx = 0.; *roty = 0.; *rotz = 0.;}
+            if ui.button("Reset rotations").clicked() {*rot_con = RotationConfig::default()}
             ui.separator();
+            let RotationConfig {scale, rotx, roty, rotz, yrange, .. } = rot_con;
             ui.label("Rotations (ypr):");
             ui.drag_angle(rotx);
             ui.drag_angle(roty);
